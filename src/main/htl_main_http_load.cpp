@@ -152,7 +152,7 @@ int main(int argc, char** argv){
             std::string _index = index;
             size_t pos = std::string::npos;
             if ((pos = http_url.find("{i}")) != std::string::npos) {
-                http_url = http_url.replace(pos, pos + 3, _index);
+                http_url = http_url.replace(pos, 3, _index);
             }
         }
 
