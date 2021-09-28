@@ -38,23 +38,28 @@ using namespace std;
 
 #define DefaultDelaySeconds 0.0
 #define DefaultHttpUrl "http://127.0.0.1:3080/hls/segm130813144315787-522881.ts"
+#define DefaultHTTPUrl_I "http://127.0.0.1:8080/live/livestream_{i}.flv"
 
 int discovery_options(int argc, char** argv, 
     bool& show_help, bool& show_version, string& url, int& threads, 
-    double& startup, double& delay, double& error, double& report, int& count
+    double& startup, double& delay, double& error, double& report, int& count, int& stream
 ){
     int ret = ERROR_SUCCESS;
     
     static option long_options[] = {
         SharedOptions()
+        {"stream", no_argument, 0, 'l'},
         {0, 0, 0, 0}
     };
     
     int opt = 0;
     int option_index = 0;
-    while((opt = getopt_long(argc, argv, "hvc:r:t:s:d:e:m:", long_options, &option_index)) != -1){
+    while((opt = getopt_long(argc, argv, "hvc:r:t:s:d:e:m:l:", long_options, &option_index)) != -1){
         switch(opt){
             ProcessSharedOptions()
+            case 'l':
+                stream = atoi(optarg);
+            break;
             default:
                 show_help = true;
                 break;
@@ -89,6 +94,8 @@ void help(char** argv){
         "   %s -c 10000 -r %s\n"
         "4. start 100000 clients\n"
         "   %s -c 100000 -r %s\n"
+        "5. start 1000 clients, 100 streams\n"
+        "   %s -c 1000 -l 100 -r %s\n"
         "\n"
         "This program built for %s.\n"
         "Report bugs to <%s>\n",
@@ -96,7 +103,7 @@ void help(char** argv){
         DefaultThread, DefaultHttpUrl, DefaultCount, // part1
         (double)DefaultStartupSeconds, DefaultDelaySeconds, // part2
         DefaultErrorSeconds, DefaultReportSeconds, // part2
-        argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl,
+        argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl, argv[0], DefaultHttpUrl, argv[0], DefaultHTTPUrl_I,
         BuildPlatform, BugReportEmail);
         
     exit(0);
@@ -108,11 +115,14 @@ int main(int argc, char** argv){
     bool show_help = false, show_version = false; 
     string url; int threads = DefaultThread; 
     double start = DefaultStartupSeconds, delay = DefaultDelaySeconds, error = DefaultErrorSeconds;
-    double report = DefaultReportSeconds; int count = DefaultCount;
+    double report = DefaultReportSeconds; int count = DefaultCount; int stream = 0;
     
-    if((ret = discovery_options(argc, argv, show_help, show_version, url, threads, start, delay, error, report, count)) != ERROR_SUCCESS){
+    if((ret = discovery_options(argc, argv, show_help, show_version, url, threads, start, delay, error, report, count, stream)) != ERROR_SUCCESS){
         Error("discovery options failed. ret=%d", ret);
         return ret;
+    }
+    if (stream == 0) {
+        stream = threads;
     }
     Trace("params url=%s, threads=%d, start=%.2f, delay=%.2f, error=%.2f, report=%.2f, count=%d", 
         url.c_str(), threads, start, delay, error, report, count);
@@ -134,8 +144,20 @@ int main(int argc, char** argv){
     for(int i = 0; i < threads; i++){
         StHttpTask* task = new StHttpTask();
 
-        if((ret = task->Initialize(url, start, delay, error, count)) != ERROR_SUCCESS){
-            Error("initialize task failed, url=%s, ret=%d", url.c_str(), ret);
+        int m = threads/stream;
+        std::string http_url = url;
+        if (m > 1) {
+            char index[16];
+            snprintf(index, sizeof(index), "%d", i/m);
+            std::string _index = index;
+            size_t pos = std::string::npos;
+            if ((pos = http_url.find("{i}")) != std::string::npos) {
+                http_url = http_url.replace(pos, pos + 3, _index);
+            }
+        }
+
+        if((ret = task->Initialize(http_url, start, delay, error, count)) != ERROR_SUCCESS){
+            Error("initialize task failed, url=%s, ret=%d", http_url.c_str(), ret);
             return ret;
         }
         
