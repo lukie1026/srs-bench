@@ -111,6 +111,7 @@ void help(char** argv){
 
 int main(int argc, char** argv){
     int ret = ERROR_SUCCESS;
+    int inc_flag = 1;
     
     bool show_help = false, show_version = false; 
     string url; int threads = DefaultThread; 
@@ -122,6 +123,7 @@ int main(int argc, char** argv){
         return ret;
     }
     if (stream == 0) {
+        inc_flag = 0;
         stream = threads;
     }
     Trace("params url=%s, threads=%d, start=%.2f, delay=%.2f, error=%.2f, report=%.2f, count=%d", 
@@ -146,7 +148,7 @@ int main(int argc, char** argv){
 
         int m = threads/stream;
         std::string http_url = url;
-        if (m > 1) {
+        if (inc_flag != 0) {
             char index[16];
             snprintf(index, sizeof(index), "%d", i/m);
             std::string _index = index;
